@@ -1,16 +1,46 @@
-# water_track
+# 💧 Water Tracker
 
-A new Flutter project.
+[![Flutter](https://img.shields.io/badge/Flutter-02569B?style=for-the-badge&logo=flutter&logoColor=white)](https://flutter.dev/)
+[![Dart](https://img.shields.io/badge/Dart-0175C2?style=for-the-badge&logo=dart&logoColor=white)](https://dart.dev/)
 
-## Getting Started
 
-This project is a starting point for a Flutter application.
+A simple **water intake tracking app**.  
+Users can set a daily goal and track the number of glasses they drink.
+# 💧 Water Tracker
 
-A few resources to get you started if this is your first Flutter project:
+## ✨ Features
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+- 🎯 Set your daily water goal
+- ➕ Add a glass (+1 Glass)
+- 🔄 Reset daily count
+- 📊 Visual progress with a LinearProgressIndicator
+- 💾 Data is saved locally using SharedPreferences
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+## 📝 How to Use
+
+1. Open the app.  
+2. Tap **"Set Goal"** to set your daily goal.  
+3. Tap **"+1 Glass"** to add a glass.  
+4. Tap **"Reset"** to reset the count for the day.
+
+## 🛠 Technologies
+
+- **Flutter** (Dart)  
+- SharedPreferences
+
+## 📌 To-Do List
+
+- 🎉 Celebration animation or message when goal is reached
+- 🗓 Auto reset on a new day
+- 🥤 Different glass sizes
+- 🔔 Notifications
+- 📈 Save past statistics (7-day graph)
+- 🎨 UI improvements
+
+## 🚀 Installation
+
+```bash
+git clone https://github.com/username/water-tracker.git
+cd water-tracker
+flutter pub get
+flutter run
