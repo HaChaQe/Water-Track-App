@@ -17,6 +17,7 @@ Users can set a daily goal and track the number of glasses they drink.
 - 💾 Data is saved locally using SharedPreferences
 - 🎉 Celebration animation or message when goal is reached
 - 🗓 Auto reset on a new day
+- 🥤 Different glass sizes
 
 ## 📝 How to Use
 
@@ -32,7 +33,6 @@ Users can set a daily goal and track the number of glasses they drink.
 
 ## 📌 To-Do List
 
-- 🥤 Different glass sizes
 - 🔔 Notifications
 - 📈 Save past statistics (7-day graph)
 - 🎨 UI improvements
