@@ -51,7 +51,7 @@ class _WaterTracker extends State<WaterTracker> with SingleTickerProviderStateMi
     super.dispose();
   }
 
-  _loadMl() async {
+   Future<void> _loadMl() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     final today = DateTime.now();
     final savedDateString = prefs.getString('lastDate');
@@ -73,12 +73,12 @@ class _WaterTracker extends State<WaterTracker> with SingleTickerProviderStateMi
     setState(() {});
   }
 
-  _saveMl() async {
+  Future<void> _saveMl() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     prefs.setInt('totalMl', totalMl);
   }
 
-  _loadGoal() async {
+  Future<void> _loadGoal() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     setState(() {
       dailyGoal = prefs.getInt('dailyGoal') ?? 2000;
