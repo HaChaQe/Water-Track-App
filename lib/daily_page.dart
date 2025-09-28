@@ -16,11 +16,12 @@ class DailyPage extends StatefulWidget {
   });
 
   @override
-  State<DailyPage> createState() => _DailyPage();
+  State<DailyPage> createState() => _DailyPageState();
 }
 
-class _DailyPage extends State<DailyPage> with SingleTickerProviderStateMixin {
+class _DailyPageState extends State<DailyPage> with SingleTickerProviderStateMixin {
   int totalMl = 0;
+  double sliderValue = 150;
   late ConfettiController _confettiController;
   late AnimationController _waveController;
 
@@ -28,10 +29,8 @@ class _DailyPage extends State<DailyPage> with SingleTickerProviderStateMixin {
   void initState() {
     super.initState();
     _confettiController = ConfettiController(duration: const Duration(seconds: 2));
-    _waveController = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 2),
-    )..repeat();
+    _waveController = AnimationController(vsync: this, duration: const Duration(seconds: 2))
+      ..repeat();
     _loadMl();
   }
 
@@ -75,8 +74,8 @@ class _DailyPage extends State<DailyPage> with SingleTickerProviderStateMixin {
       _saveMl();
       if (totalMl >= widget.dailyGoal) {
         _confettiController.play();
-        widget.onDayComplete(totalMl); // ✅ WeeklyPage’e gönder
       }
+      widget.onDayComplete(totalMl);
     });
   }
 
@@ -84,13 +83,14 @@ class _DailyPage extends State<DailyPage> with SingleTickerProviderStateMixin {
     setState(() {
       totalMl = 0;
       _saveMl();
+      widget.onDayComplete(totalMl);
     });
   }
 
   void setDailyGoal(int goal) async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     await prefs.setInt('dailyGoal', goal);
-    widget.onGoalChange(goal); // ✅ Ana sayfadaki hedefi güncelle
+    widget.onGoalChange(goal);
   }
 
   @override
@@ -103,115 +103,110 @@ class _DailyPage extends State<DailyPage> with SingleTickerProviderStateMixin {
       body: Stack(
         alignment: Alignment.center,
         children: [
-          Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              SizedBox(
-                width: 200,
-                height: 200,
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    Container(
-                      width: 200,
-                      height: 200,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: Colors.grey[300],
-                      ),
-                    ),
-                    AnimatedBuilder(
-                      animation: _waveController,
-                      builder: (context, child) {
-                        return ClipPath(
-                          clipper: WaveClipper(
-                            animationValue: _waveController.value,
-                            progress: progress,
-                          ),
-                          child: Container(
-                            width: 200,
-                            height: 200,
-                            decoration: const BoxDecoration(
-                              color: Colors.blue,
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 16),
+            child: Column(
+              children: [
+                // const SizedBox(height: 30),
+                // Su dairesi
+                Expanded(
+                  child: Center(
+                    child: SizedBox(
+                      width: 220,
+                      height: 220,
+                      child: Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          Container(
+                            width: 220,
+                            height: 220,
+                            decoration: BoxDecoration(
                               shape: BoxShape.circle,
+                              color: Colors.grey[300],
                             ),
                           ),
-                        );
+                          AnimatedBuilder(
+                            animation: _waveController,
+                            builder: (context, child) {
+                              return ClipPath(
+                                clipper: WaveClipper(
+                                    animationValue: _waveController.value, progress: progress),
+                                child: Container(
+                                  width: 220,
+                                  height: 220,
+                                  decoration: const BoxDecoration(
+                                    color: Colors.blue,
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                          Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text("$totalMl ml",
+                                  style: const TextStyle(
+                                      fontSize: 24,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white)),
+                              Text("Hedef: ${widget.dailyGoal} ml",
+                                  style: const TextStyle(fontSize: 16, color: Colors.white)),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                    Slider(
+                      value: sliderValue,
+                      min: 50,
+                      max: 500,
+                      divisions: 9,
+                      activeColor: Colors.blue,
+                      inactiveColor: Colors.blue[100],
+                      label: sliderValue.toInt().toString(),
+                      onChanged: (value) {
+                        setState(() {
+                          sliderValue = value;
+                        });
                       },
                     ),
-                    Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
+                    ElevatedButton(
+                      onPressed: () => addWater(sliderValue.toInt()),
+                      style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.blue, minimumSize: const Size(150, 50)),
+                      child: Text("+ ${sliderValue.toInt()} ml", style: TextStyle(color: Colors.white),),
+                ),
+                SizedBox(height: 50,),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    _mlButton(150, Colors.blue[300]!),
+                    _mlButton(250, Colors.blue[400]!),
+                    _mlButton(400, Colors.blue[600]!),
+                  ],
+                ),
+                SizedBox(height: 100,),
+                // Alt menü butonları
+                Column(
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                       children: [
-                        Text(
-                          "$totalMl ml",
-                          style: const TextStyle(
-                              fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white),
-                        ),
-                        Text(
-                          "Hedef: ${widget.dailyGoal} ml",
-                          style: const TextStyle(fontSize: 16, color: Colors.white),
-                        ),
+                        _smallButton("Sıfırla", resetWater, Colors.grey[400]!),
+                        _smallButton("Hedefi değiştir", _changeGoalDialog, Colors.blue[400]!),
+                        _smallButton("Varsayılana dön", () => setDailyGoal(2000), Colors.red[300]!),
                       ],
                     ),
                   ],
                 ),
-              ),
-              const SizedBox(height: 20),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  ElevatedButton(onPressed: () => addWater(150), child: const Text("+150 Ml")),
-                  const SizedBox(width: 10),
-                  ElevatedButton(onPressed: () => addWater(250), child: const Text("+250 Ml")),
-                  const SizedBox(width: 10),
-                  ElevatedButton(onPressed: () => addWater(400), child: const Text("+400 Ml")),
-                ],
-              ),
-              const SizedBox(height: 10),
-              ElevatedButton(onPressed: resetWater, child: const Text("Sıfırla!")),
-              const SizedBox(height: 10),
-              ElevatedButton(
-                onPressed: () async {
-                  final controller = TextEditingController();
-                  final newGoal = await showDialog<int>(
-                    context: context,
-                    builder: (context) => AlertDialog(
-                      title: const Text("Yeni hedef gir:"),
-                      content: TextField(
-                        controller: controller,
-                        keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(hintText: "Kaç ml?"),
-                      ),
-                      actions: [
-                        TextButton(
-                          onPressed: () => Navigator.pop(context),
-                          child: const Text("İptal"),
-                        ),
-                        TextButton(
-                          onPressed: () {
-                            final value = int.tryParse(controller.text);
-                            if (value != null && value > 0) {
-                              Navigator.pop(context, value);
-                            }
-                          },
-                          child: const Text("Kaydet"),
-                        ),
-                      ],
-                    ),
-                  );
-                  if (newGoal != null) {
-                    setDailyGoal(newGoal);
-                  }
-                },
-                child: const Text("Hedefi değiştir"),
-              ),
-              const SizedBox(height: 10),
-              ElevatedButton(
-                onPressed: () => setDailyGoal(2000),
-                child: const Text("Varsayılana dön (2000 ml)"),
-              )
-            ],
+              ],
+            ),
           ),
+          // Konfeti
           ConfettiWidget(
             confettiController: _confettiController,
             blastDirectionality: BlastDirectionality.explosive,
@@ -227,12 +222,67 @@ class _DailyPage extends State<DailyPage> with SingleTickerProviderStateMixin {
       ),
     );
   }
+
+  Widget _mlButton(int ml, Color color) {
+    return ElevatedButton(
+      onPressed: () => addWater(ml),
+      style: ElevatedButton.styleFrom(
+        shape: const CircleBorder(),
+        padding: const EdgeInsets.all(15),
+        backgroundColor: color,
+      ),
+      child: Text(
+        "+$ml",
+        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+      ),
+    );
+  }
+
+  Widget _smallButton(String text, VoidCallback onTap, Color color) {
+    return ElevatedButton(
+      onPressed: onTap,
+      style: ElevatedButton.styleFrom(
+        backgroundColor: color,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      ),
+      child: Text(
+        text,
+        style: const TextStyle(fontSize: 14, color: Colors.white),
+      ),
+    );
+  }
+
+  void _changeGoalDialog() async {
+    final controller = TextEditingController();
+    final newGoal = await showDialog<int>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Yeni hedef gir:"),
+        content: TextField(
+          controller: controller,
+          keyboardType: TextInputType.number,
+          decoration: const InputDecoration(hintText: "Kaç ml?"),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text("İptal")),
+          TextButton(
+            onPressed: () {
+              final value = int.tryParse(controller.text);
+              if (value != null && value > 0) Navigator.pop(context, value);
+            },
+            child: const Text("Kaydet"),
+          ),
+        ],
+      ),
+    );
+    if (newGoal != null) setDailyGoal(newGoal);
+  }
 }
 
 class WaveClipper extends CustomClipper<Path> {
   final double animationValue;
   final double progress;
-
   WaveClipper({required this.animationValue, required this.progress});
 
   @override

@@ -31,7 +31,8 @@ class _HomePageState extends State<HomePage> {
   int _selectedIndex = 0;
 
   int _dailyGoal = 2000;
-  List<int> _weeklyData = [1200, 1800, 2000, 1500, 2200, 1700, 2100];
+  // Haftalık veri: Pazartesi=0, ..., Pazar=6
+  final List<int> _weeklyData = [1200, 1800, 2000, 1500, 2200, 1700, 2100];
 
   void _updateDailyGoal(int newGoal) {
     setState(() {
@@ -40,9 +41,9 @@ class _HomePageState extends State<HomePage> {
   }
 
   void _updateWeeklyData(int todayAmount) {
+    final todayIndex = DateTime.now().weekday - 1; // 0=Mon, 6=Sun
     setState(() {
-      _weeklyData.removeAt(0);
-      _weeklyData.add(todayAmount);
+      _weeklyData[todayIndex] = todayAmount;
     });
   }
 
