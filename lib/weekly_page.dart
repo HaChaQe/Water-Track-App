@@ -14,8 +14,10 @@ class WeeklyPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.lightBlue[50],
       appBar: AppBar(
         title: const Text("Weekly Stats"),
+        backgroundColor: Colors.lightBlue[100],
         centerTitle: true,
       ),
       body: Padding(

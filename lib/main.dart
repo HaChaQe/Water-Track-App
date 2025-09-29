@@ -62,9 +62,14 @@ class _HomePageState extends State<HomePage> {
     ];
 
     return Scaffold(
+      backgroundColor: Colors.lightBlue[50],
       body: pages[_selectedIndex],
       bottomNavigationBar: BottomNavigationBar(
+        backgroundColor: Colors.lightBlue[100],
+        type: BottomNavigationBarType.fixed,
         currentIndex: _selectedIndex,
+        selectedItemColor: Colors.blue,
+        unselectedItemColor: Colors.blue,
         onTap: (index) {
           setState(() {
             _selectedIndex = index;
@@ -72,11 +77,11 @@ class _HomePageState extends State<HomePage> {
         },
         items: const [
           BottomNavigationBarItem(
-            icon: Icon(Icons.local_drink),
+            icon: Icon(Icons.local_drink, color: Colors.blue,),
             label: "Daily",
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.bar_chart),
+            icon: Icon(Icons.bar_chart, color: Colors.blue),
             label: "7 Days",
           ),
         ],

@@ -99,7 +99,8 @@ class _DailyPageState extends State<DailyPage> with SingleTickerProviderStateMix
     if (progress > 1.0) progress = 1.0;
 
     return Scaffold(
-      appBar: AppBar(title: const Center(child: Text('Su Takibi'))),
+      backgroundColor: Colors.lightBlue[50],
+      appBar: AppBar(title: const Center(child: Text('Su Takibi')),backgroundColor: Colors.lightBlue[100]),
       body: Stack(
         alignment: Alignment.center,
         children: [
@@ -123,6 +124,13 @@ class _DailyPageState extends State<DailyPage> with SingleTickerProviderStateMix
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
                               color: Colors.grey[300],
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.blueAccent.withOpacity(0.6),
+                                  blurRadius: 30,
+                                  spreadRadius: 5
+                                )
+                              ]
                             ),
                           ),
                           AnimatedBuilder(
