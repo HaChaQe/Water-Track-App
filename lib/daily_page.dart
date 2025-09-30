@@ -7,12 +7,16 @@ class DailyPage extends StatefulWidget {
   final int dailyGoal;
   final Function(int) onGoalChange;
   final Function(int) onDayComplete;
+  final bool isOz;
+  final VoidCallback onToggleUnit;
 
   const DailyPage({
     super.key,
     required this.dailyGoal,
     required this.onGoalChange,
     required this.onDayComplete,
+    required this.isOz,
+    required this.onToggleUnit,
   });
 
   @override
@@ -39,6 +43,18 @@ class _DailyPageState extends State<DailyPage> with SingleTickerProviderStateMix
     _confettiController.dispose();
     _waveController.dispose();
     super.dispose();
+  }
+
+  @override
+  void didUpdateWidget(covariant DailyPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.isOz != oldWidget.isOz) {
+      setState(() {
+        sliderValue = widget.isOz
+            ? (sliderValue / 29.57).clamp(2, 16) // ml -> oz
+            : (sliderValue * 29.57).clamp(50, 500); // oz -> ml
+      });
+    }
   }
 
   Future<void> _loadMl() async {
@@ -95,168 +111,218 @@ class _DailyPageState extends State<DailyPage> with SingleTickerProviderStateMix
 
   @override
   Widget build(BuildContext context) {
+    double sliderMin = widget.isOz ? 2 : 50;
+    double sliderMax = widget.isOz ? 16 : 500;
     double progress = totalMl / widget.dailyGoal;
     if (progress > 1.0) progress = 1.0;
 
     return Scaffold(
-      backgroundColor: Colors.lightBlue[50],
-      appBar: AppBar(title: const Center(child: Text('Su Takibi')),backgroundColor: Colors.lightBlue[100]),
-      body: Stack(
-        alignment: Alignment.center,
-        children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 16),
-            child: Column(
+      appBar: AppBar(
+        title: const Text("Daily Water Track"),
+        leading: Builder(
+          builder: (context) => IconButton(
+            onPressed: () => Scaffold.of(context).openDrawer(),
+            icon: const Icon(Icons.settings),
+          ),
+        ),
+      ),
+      drawer: Drawer(
+        child: ListView(
+          padding: EdgeInsets.zero,
+          children: [
+            Container(
+              height: 100,
+              color: Theme.of(context).colorScheme.primary,
+              alignment: Alignment(-0.9, 0.8),
+              child: const Text('Settings', style: TextStyle(color: Colors.white, fontSize: 24)),
+            ),
+            ListTile(
+              leading: const Icon(Icons.flag),
+              title: const Text('Change Goal'),
+              onTap: () {
+                Navigator.pop(context);
+                _changeGoalDialog();
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.settings_backup_restore),
+              title: const Text('Default Goal'),
+              onTap: () {
+                setDailyGoal(2000);
+                Navigator.pop(context);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.restore),
+              title: const Text('Daily Reset'),
+              onTap: () {
+                resetWater();
+                Navigator.pop(context);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.swap_horiz),
+              title: Text(widget.isOz ? "Switch to mL" : "Switch to Oz"),
+              onTap: () {
+                widget.onToggleUnit();
+                Navigator.pop(context);
+              },
+            ),
+          ],
+        ),
+      ),
+      backgroundColor: Colors.blue.shade50,
+      body: Center(
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                // const SizedBox(height: 30),
-                // Su dairesi
-                Expanded(
-                  child: Center(
-                    child: SizedBox(
-                      width: 220,
-                      height: 220,
-                      child: Stack(
-                        alignment: Alignment.center,
-                        children: [
-                          Container(
-                            width: 220,
-                            height: 220,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: Colors.grey[300],
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.blueAccent.withOpacity(0.6),
-                                  blurRadius: 30,
-                                  spreadRadius: 5
-                                )
-                              ]
+                SizedBox(
+                  width: 220,
+                  height: 220,
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      Container(
+                        width: 220,
+                        height: 220,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Colors.grey[200],
+                          boxShadow: [
+                            BoxShadow(
+                              color: Theme.of(context).colorScheme.primary.withOpacity(0.6),
+                              blurRadius: 30,
+                              spreadRadius: 5,
+                            )
+                          ],
+                        ),
+                      ),
+                      AnimatedBuilder(
+                        animation: _waveController,
+                        builder: (context, child) {
+                          return ClipPath(
+                            clipper: WaveClipper(animationValue: _waveController.value, progress: progress),
+                            child: Container(
+                              width: 220,
+                              height: 220,
+                              decoration: BoxDecoration(
+                                color: Theme.of(context).colorScheme.primary,
+                                shape: BoxShape.circle,
+                              ),
                             ),
+                          );
+                        },
+                      ),
+                      Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            widget.isOz
+                                ? "${(totalMl / 29.57).round()} oz"
+                                : "$totalMl ml",
+                            style: TextStyle(
+                                fontSize: 24,
+                                fontWeight: FontWeight.bold,
+                                color: progress >= 0.5 ? Colors.white : Colors.grey),
                           ),
-                          AnimatedBuilder(
-                            animation: _waveController,
-                            builder: (context, child) {
-                              return ClipPath(
-                                clipper: WaveClipper(
-                                    animationValue: _waveController.value, progress: progress),
-                                child: Container(
-                                  width: 220,
-                                  height: 220,
-                                  decoration: const BoxDecoration(
-                                    color: Colors.blue,
-                                    shape: BoxShape.circle,
-                                  ),
-                                ),
-                              );
-                            },
-                          ),
-                          Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Text("$totalMl ml",
-                                  style: const TextStyle(
-                                      fontSize: 24,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.white)),
-                              Text("Hedef: ${widget.dailyGoal} ml",
-                                  style: const TextStyle(fontSize: 16, color: Colors.white)),
-                            ],
+                          Text(
+                            widget.isOz
+                                ? "Goal: ${(widget.dailyGoal / 29.57).round()} oz"
+                                : "Goal: ${widget.dailyGoal} ml",
+                            style: TextStyle(
+                                fontSize: 16,
+                                color: progress >= 0.35 ? Colors.white : Colors.grey),
                           ),
                         ],
                       ),
-                    ),
+                    ],
                   ),
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 35),
+                Column(
+                  children: [
                     Slider(
-                      value: sliderValue,
-                      min: 50,
-                      max: 500,
-                      divisions: 9,
-                      activeColor: Colors.blue,
-                      inactiveColor: Colors.blue[100],
-                      label: sliderValue.toInt().toString(),
+                      value: sliderValue.clamp(sliderMin, sliderMax),
+                      min: sliderMin,
+                      max: sliderMax,
+                      divisions: widget.isOz ? (sliderMax - sliderMin).toInt() : 9,
+                      activeColor: Theme.of(context).colorScheme.primary,
+                      inactiveColor: Theme.of(context).colorScheme.secondary,
+                      label: widget.isOz
+                          ? "${sliderValue.clamp(sliderMin, sliderMax).round()} oz"
+                          : "${sliderValue.clamp(sliderMin, sliderMax).toInt()} ml",
                       onChanged: (value) {
                         setState(() {
                           sliderValue = value;
                         });
                       },
                     ),
+                    const SizedBox(height: 8),
                     ElevatedButton(
-                      onPressed: () => addWater(sliderValue.toInt()),
+                      onPressed: () {
+                        final mlValue = widget.isOz ? (sliderValue * 29.57).round() : sliderValue.toInt();
+                        addWater(mlValue);
+                      },
                       style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.blue, minimumSize: const Size(150, 50)),
-                      child: Text("+ ${sliderValue.toInt()} ml", style: TextStyle(color: Colors.white),),
-                ),
-                SizedBox(height: 50,),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: [
-                    _mlButton(150, Colors.blue[300]!),
-                    _mlButton(250, Colors.blue[400]!),
-                    _mlButton(400, Colors.blue[600]!),
-                  ],
-                ),
-                SizedBox(height: 100,),
-                // Alt menü butonları
-                Column(
-                  children: [
+                        backgroundColor: Theme.of(context).colorScheme.primary,
+                        minimumSize: const Size(120, 50),
+                      ),
+                      child: Text(
+                        widget.isOz
+                            ? "+ ${sliderValue.round()} oz"
+                            : "+ ${sliderValue.toInt()} ml",
+                        style: const TextStyle(color: Colors.white, fontSize: 16),
+                      ),
+                    ),
+                    const SizedBox(height: 50),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                       children: [
-                        _smallButton("Sıfırla", resetWater, Colors.grey[400]!),
-                        _smallButton("Hedefi değiştir", _changeGoalDialog, Colors.blue[400]!),
-                        _smallButton("Varsayılana dön", () => setDailyGoal(2000), Colors.red[300]!),
+                        for (var val in [150, 250, 400])
+                          ElevatedButton(
+                            onPressed: () {
+                              final mlValue = widget.isOz ? (val / 29.57).round() : val;
+                              addWater(mlValue);
+                            },
+                            style: ElevatedButton.styleFrom(
+                              shape: const CircleBorder(),
+                              padding: const EdgeInsets.all(13),
+                              backgroundColor: Colors.blue.shade300,
+                            ),
+                            child: Text(
+                              widget.isOz ? "+ ${(val / 29.57).round()}" : "+$val",
+                              style: const TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white),
+                            ),
+                          ),
                       ],
                     ),
                   ],
-                ),
+                )
               ],
             ),
-          ),
-          // Konfeti
-          ConfettiWidget(
-            confettiController: _confettiController,
-            blastDirectionality: BlastDirectionality.explosive,
-            shouldLoop: false,
-            emissionFrequency: 0.05,
-            numberOfParticles: 50,
-            maxBlastForce: 50,
-            minBlastForce: 20,
-            gravity: 0.3,
-            colors: const [Colors.red, Colors.blue, Colors.green, Colors.orange, Colors.purple],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _mlButton(int ml, Color color) {
-    return ElevatedButton(
-      onPressed: () => addWater(ml),
-      style: ElevatedButton.styleFrom(
-        shape: const CircleBorder(),
-        padding: const EdgeInsets.all(15),
-        backgroundColor: color,
-      ),
-      child: Text(
-        "+$ml",
-        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
-      ),
-    );
-  }
-
-  Widget _smallButton(String text, VoidCallback onTap, Color color) {
-    return ElevatedButton(
-      onPressed: onTap,
-      style: ElevatedButton.styleFrom(
-        backgroundColor: color,
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-      ),
-      child: Text(
-        text,
-        style: const TextStyle(fontSize: 14, color: Colors.white),
+            ConfettiWidget(
+              confettiController: _confettiController,
+              blastDirectionality: BlastDirectionality.explosive,
+              shouldLoop: false,
+              emissionFrequency: 0.05,
+              numberOfParticles: 50,
+              maxBlastForce: 50,
+              minBlastForce: 20,
+              gravity: 0.3,
+              colors: const [
+                Color(0xFF1976D2),
+                Color(0xFF64B5F6),
+                Color(0xFFFFC107),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -266,20 +332,20 @@ class _DailyPageState extends State<DailyPage> with SingleTickerProviderStateMix
     final newGoal = await showDialog<int>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text("Yeni hedef gir:"),
+        title: const Text("Enter new goal:"),
         content: TextField(
           controller: controller,
           keyboardType: TextInputType.number,
-          decoration: const InputDecoration(hintText: "Kaç ml?"),
+          decoration: const InputDecoration(hintText: "How many ml?"),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text("İptal")),
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancel")),
           TextButton(
             onPressed: () {
               final value = int.tryParse(controller.text);
               if (value != null && value > 0) Navigator.pop(context, value);
             },
-            child: const Text("Kaydet"),
+            child: const Text("Save"),
           ),
         ],
       ),

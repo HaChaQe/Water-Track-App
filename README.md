@@ -10,15 +10,23 @@ Users can set a daily goal and track the number of glasses they drink.
 
 ## ✨ Features
 
-- 🎯 Set your daily water goal
-- ➕ Add a glass (+1 Glass)
-- 🔄 Reset daily count
-- 📊 Visual progress with a LinearProgressIndicator
-- 💾 Data is saved locally using SharedPreferences
-- 🎉 Celebration animation or message when goal is reached
-- 🗓 Auto reset on a new day
-- 🥤 Different glass sizes
-- 📈 Save past statistics (7-day graph)
+- ⚙️ Drawer Settings
+    - 🔄 Reset daily count
+    - 🎯 Set your daily water goal
+    - ↔️ Switch between mL/Oz
+- ➕ Add Water Intake
+    - Use slider or preset buttons for different amounts
+- 📊 Visual progress
+    - Animated circular progress bar
+- 📈 Weekly statistics
+    - View intake over the last 7 days
+- 💾 Data Persistence
+    - Data is saved locally using SharedPreferences
+- 🎉 Celebration Animation
+    - Confetti animation plays when goal is reached
+- 🗓 Auto Daily Reset
+    - Resets intake automatically every day
+
 
 ## 📝 How to Use
 
