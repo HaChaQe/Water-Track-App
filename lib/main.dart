@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
 import 'daily_page.dart';
 import 'weekly_page.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
   runApp(const MyApp());
 }
 
@@ -16,41 +19,147 @@ class MyApp extends StatefulWidget {
 class _MyAppState extends State<MyApp> {
   int _selectedIndex = 0;
   int _dailyGoal = 2000;
-  final List<int> _weeklyData = [1200, 1800, 2000, 1500, 2200, 1700, 2100];
+  Map<String, int> _dailyHistory = {}; // 'yyyy-MM-dd': ml
   bool _isOz = false;
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadAllData();
+  }
+
+  Future<void> _loadAllData() async {
+    try {
+      SharedPreferences prefs = await SharedPreferences.getInstance();
+      
+      // Goal yükle
+      final savedGoal = prefs.getInt('dailyGoal') ?? 2000;
+      
+      // Birim tercihini yükle
+      final savedIsOz = prefs.getBool('isOz') ?? false;
+      
+      // Günlük geçmişi yükle
+      final historyString = prefs.getString('dailyHistory');
+      Map<String, int> loadedHistory = {};
+      if (historyString != null) {
+        final decoded = jsonDecode(historyString) as Map<String, dynamic>;
+        loadedHistory = decoded.map((key, value) => MapEntry(key, value as int));
+      }
+      
+      // Son 30 günü tut, eskiyi sil
+      final now = DateTime.now();
+      loadedHistory.removeWhere((dateStr, _) {
+        final date = DateTime.parse(dateStr);
+        return now.difference(date).inDays > 30;
+      });
+
+      setState(() {
+        _dailyGoal = savedGoal;
+        _isOz = savedIsOz;
+        _dailyHistory = loadedHistory;
+        _isLoading = false;
+      });
+    } catch (e) {
+      debugPrint('Error loading data: $e');
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _saveDailyHistory() async {
+    try {
+      SharedPreferences prefs = await SharedPreferences.getInstance();
+      await prefs.setString('dailyHistory', jsonEncode(_dailyHistory));
+    } catch (e) {
+      debugPrint('Error saving history: $e');
+    }
+  }
+
+  Future<void> _saveGoal(int goal) async {
+    try {
+      SharedPreferences prefs = await SharedPreferences.getInstance();
+      await prefs.setInt('dailyGoal', goal);
+    } catch (e) {
+      debugPrint('Error saving goal: $e');
+    }
+  }
+
+  Future<void> _saveUnitPreference() async {
+    try {
+      SharedPreferences prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('isOz', _isOz);
+    } catch (e) {
+      debugPrint('Error saving unit preference: $e');
+    }
+  }
 
   void _updateDailyGoal(int newGoal) {
     setState(() {
       _dailyGoal = newGoal;
     });
+    _saveGoal(newGoal);
   }
 
-  void _updateWeeklyData(int todayAmount) {
-    final todayIndex = DateTime.now().weekday - 1;
+  void _updateTodayData(int todayAmount) {
+    final today = _getDateString(DateTime.now());
     setState(() {
-      _weeklyData[todayIndex] = todayAmount;
+      _dailyHistory[today] = todayAmount;
     });
+    _saveDailyHistory();
   }
 
   void _toggleUnit() {
     setState(() {
       _isOz = !_isOz;
     });
+    _saveUnitPreference();
+  }
+
+  String _getDateString(DateTime date) {
+    return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+  }
+
+  List<int> _getLast7DaysData() {
+    final List<int> data = [];
+    final now = DateTime.now();
+    
+    for (int i = 6; i >= 0; i--) {
+      final date = now.subtract(Duration(days: i));
+      final dateStr = _getDateString(date);
+      data.add(_dailyHistory[dateStr] ?? 0);
+    }
+    
+    return data;
   }
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return MaterialApp(
+        debugShowCheckedModeBanner: false,
+        home: Scaffold(
+          body: Center(
+            child: CircularProgressIndicator(
+              color: const Color(0xFF1976D2),
+            ),
+          ),
+        ),
+      );
+    }
+
     final pages = [
       DailyPage(
         dailyGoal: _dailyGoal,
         onGoalChange: _updateDailyGoal,
-        onDayComplete: _updateWeeklyData,
+        onDayComplete: _updateTodayData,
         isOz: _isOz,
         onToggleUnit: _toggleUnit,
       ),
       WeeklyPage(
         dailyGoal: _dailyGoal,
-        weeklyData: _weeklyData,
+        weeklyData: _getLast7DaysData(),
         isOz: _isOz,
       ),
     ];
@@ -84,6 +193,33 @@ class _MyAppState extends State<MyApp> {
           unselectedItemColor: Color(0xFFFFFFFF),
         ),
       ),
+      darkTheme: ThemeData.dark().copyWith(
+        primaryColor: const Color(0xFF1976D2),
+        colorScheme: const ColorScheme.dark(
+          primary: Color(0xFF64B5F6),
+          secondary: Color(0xFF90CAF9),
+          background: Color(0xFF121212),
+          surface: Color(0xFF1E1E1E),
+          onPrimary: Colors.white,
+          onSecondary: Colors.white,
+          onBackground: Colors.white,
+          onSurface: Colors.white,
+          brightness: Brightness.dark,
+        ),
+        scaffoldBackgroundColor: const Color(0xFF121212),
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Color(0xFF1E1E1E),
+          foregroundColor: Colors.white,
+          centerTitle: true,
+          elevation: 0,
+        ),
+        bottomNavigationBarTheme: const BottomNavigationBarThemeData(
+          backgroundColor: Color(0xFF1E1E1E),
+          selectedItemColor: Color(0xFF64B5F6),
+          unselectedItemColor: Color(0xFF90CAF9),
+        ),
+      ),
+      themeMode: ThemeMode.system,
       home: Scaffold(
         body: pages[_selectedIndex],
         bottomNavigationBar: BottomNavigationBar(

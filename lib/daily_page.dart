@@ -23,15 +23,19 @@ class DailyPage extends StatefulWidget {
   State<DailyPage> createState() => _DailyPageState();
 }
 
-class _DailyPageState extends State<DailyPage> with SingleTickerProviderStateMixin {
+class _DailyPageState extends State<DailyPage> with SingleTickerProviderStateMixin, WidgetsBindingObserver {
+  static const double ML_TO_OZ = 29.5735;
+  
   int totalMl = 0;
   double sliderValue = 150;
   late ConfettiController _confettiController;
   late AnimationController _waveController;
+  bool _hasShownConfetti = false;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _confettiController = ConfettiController(duration: const Duration(seconds: 2));
     _waveController = AnimationController(vsync: this, duration: const Duration(seconds: 2))
       ..repeat();
@@ -40,9 +44,19 @@ class _DailyPageState extends State<DailyPage> with SingleTickerProviderStateMix
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _confettiController.dispose();
     _waveController.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused) {
+      _waveController.stop();
+    } else if (state == AppLifecycleState.resumed) {
+      _waveController.repeat();
+    }
   }
 
   @override
@@ -50,47 +64,71 @@ class _DailyPageState extends State<DailyPage> with SingleTickerProviderStateMix
     super.didUpdateWidget(oldWidget);
     if (widget.isOz != oldWidget.isOz) {
       setState(() {
-        sliderValue = widget.isOz
-            ? (sliderValue / 29.57).clamp(2, 16) // ml -> oz
-            : (sliderValue * 29.57).clamp(50, 500); // oz -> ml
+        if (widget.isOz) {
+          sliderValue = (sliderValue / ML_TO_OZ).clamp(2, 16);
+        } else {
+          sliderValue = (sliderValue * ML_TO_OZ).clamp(50, 500);
+        }
       });
+    }
+    
+    // Goal değiştiğinde konfeti durumunu kontrol et
+    if (widget.dailyGoal != oldWidget.dailyGoal) {
+      _hasShownConfetti = totalMl < widget.dailyGoal;
     }
   }
 
   Future<void> _loadMl() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    final today = DateTime.now();
-    final savedDateString = prefs.getString('lastDate');
+    try {
+      SharedPreferences prefs = await SharedPreferences.getInstance();
+      final today = DateTime.now();
+      final savedDateString = prefs.getString('lastDate');
 
-    if (savedDateString != null) {
-      final savedDate = DateTime.parse(savedDateString);
-      if (savedDate.day != today.day ||
-          savedDate.month != today.month ||
-          savedDate.year != today.year) {
-        totalMl = 0;
+      if (savedDateString != null) {
+        final savedDate = DateTime.parse(savedDateString);
+        if (savedDate.day != today.day ||
+            savedDate.month != today.month ||
+            savedDate.year != today.year) {
+          totalMl = 0;
+          _hasShownConfetti = false;
+        } else {
+          totalMl = prefs.getInt('totalMl') ?? 0;
+          _hasShownConfetti = totalMl >= widget.dailyGoal;
+        }
       } else {
         totalMl = prefs.getInt('totalMl') ?? 0;
+        _hasShownConfetti = totalMl >= widget.dailyGoal;
       }
-    } else {
-      totalMl = prefs.getInt('totalMl') ?? 0;
-    }
 
-    await prefs.setString('lastDate', today.toIso8601String());
-    setState(() {});
+      await prefs.setString('lastDate', today.toIso8601String());
+      setState(() {});
+    } catch (e) {
+      debugPrint('Error loading data: $e');
+    }
   }
 
   Future<void> _saveMl() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    prefs.setInt('totalMl', totalMl);
+    try {
+      SharedPreferences prefs = await SharedPreferences.getInstance();
+      await prefs.setInt('totalMl', totalMl);
+    } catch (e) {
+      debugPrint('Error saving data: $e');
+    }
   }
 
   void addWater(int ml) {
     setState(() {
       totalMl += ml;
       _saveMl();
-      if (totalMl >= widget.dailyGoal) {
+      
+      // İlk kez hedefi tutturduğunda konfeti göster
+      if (totalMl >= widget.dailyGoal 
+          && !_hasShownConfetti
+      ){
         _confettiController.play();
+        _hasShownConfetti = true;
       }
+      
       widget.onDayComplete(totalMl);
     });
   }
@@ -98,15 +136,20 @@ class _DailyPageState extends State<DailyPage> with SingleTickerProviderStateMix
   void resetWater() {
     setState(() {
       totalMl = 0;
+      _hasShownConfetti = false;
       _saveMl();
       widget.onDayComplete(totalMl);
     });
   }
 
   void setDailyGoal(int goal) async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    await prefs.setInt('dailyGoal', goal);
-    widget.onGoalChange(goal);
+    try {
+      SharedPreferences prefs = await SharedPreferences.getInstance();
+      await prefs.setInt('dailyGoal', goal);
+      widget.onGoalChange(goal);
+    } catch (e) {
+      debugPrint('Error saving goal: $e');
+    }
   }
 
   @override
@@ -115,6 +158,11 @@ class _DailyPageState extends State<DailyPage> with SingleTickerProviderStateMix
     double sliderMax = widget.isOz ? 16 : 500;
     double progress = totalMl / widget.dailyGoal;
     if (progress > 1.0) progress = 1.0;
+
+    // Dinamik hızlı ekleme değerleri
+    final List<int> quickAddValues = widget.isOz 
+        ? [4, 8, 16]  // oz için (yarım bardak, 1 bardak, 2 bardak)
+        : [150, 250, 400]; // ml için
 
     return Scaffold(
       appBar: AppBar(
@@ -133,7 +181,7 @@ class _DailyPageState extends State<DailyPage> with SingleTickerProviderStateMix
             Container(
               height: 100,
               color: Theme.of(context).colorScheme.primary,
-              alignment: Alignment(-0.9, 0.8),
+              alignment: const Alignment(-0.9, 0.8),
               child: const Text('Settings', style: TextStyle(color: Colors.white, fontSize: 24)),
             ),
             ListTile(
@@ -148,16 +196,24 @@ class _DailyPageState extends State<DailyPage> with SingleTickerProviderStateMix
               leading: const Icon(Icons.settings_backup_restore),
               title: const Text('Default Goal'),
               onTap: () {
-                setDailyGoal(2000);
+                setDailyGoal(widget.isOz ? 68 : 2000); // 68 oz ≈ 2000 ml
                 Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(widget.isOz 
+                        ? 'Goal set to 68 oz (≈2000 ml)'
+                        : 'Goal set to 2000 ml (≈68 oz)'),
+                    duration: const Duration(seconds: 2),
+                  ),
+                );
               },
             ),
             ListTile(
               leading: const Icon(Icons.restore),
               title: const Text('Daily Reset'),
               onTap: () {
-                resetWater();
                 Navigator.pop(context);
+                _showResetConfirmation();
               },
             ),
             ListTile(
@@ -171,7 +227,7 @@ class _DailyPageState extends State<DailyPage> with SingleTickerProviderStateMix
           ],
         ),
       ),
-      backgroundColor: Colors.blue.shade50,
+      backgroundColor: Theme.of(context).colorScheme.background,
       body: Center(
         child: Stack(
           alignment: Alignment.center,
@@ -190,7 +246,7 @@ class _DailyPageState extends State<DailyPage> with SingleTickerProviderStateMix
                         height: 220,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          color: Colors.grey[200],
+                          color: Theme.of(context).colorScheme.surface,
                           boxShadow: [
                             BoxShadow(
                               color: Theme.of(context).colorScheme.primary.withOpacity(0.6),
@@ -221,20 +277,25 @@ class _DailyPageState extends State<DailyPage> with SingleTickerProviderStateMix
                         children: [
                           Text(
                             widget.isOz
-                                ? "${(totalMl / 29.57).round()} oz"
+                                ? "${(totalMl / ML_TO_OZ).round()} oz"
                                 : "$totalMl ml",
                             style: TextStyle(
                                 fontSize: 24,
                                 fontWeight: FontWeight.bold,
-                                color: progress >= 0.5 ? Colors.white : Colors.grey),
+                                color: progress >= 0.55 
+                                    ? Colors.white 
+                                    : Theme.of(context).colorScheme.onSurface),
                           ),
+                          const SizedBox(height: 4),
                           Text(
                             widget.isOz
-                                ? "Goal: ${(widget.dailyGoal / 29.57).round()} oz"
+                                ? "Goal: ${(widget.dailyGoal / ML_TO_OZ).round()} oz"
                                 : "Goal: ${widget.dailyGoal} ml",
                             style: TextStyle(
                                 fontSize: 16,
-                                color: progress >= 0.35 ? Colors.white : Colors.grey),
+                                color: progress >= 0.5 
+                                    ? Colors.white 
+                                    : Theme.of(context).colorScheme.onSurface),
                           ),
                         ],
                       ),
@@ -242,67 +303,81 @@ class _DailyPageState extends State<DailyPage> with SingleTickerProviderStateMix
                   ),
                 ),
                 const SizedBox(height: 35),
-                Column(
-                  children: [
-                    Slider(
-                      value: sliderValue.clamp(sliderMin, sliderMax),
-                      min: sliderMin,
-                      max: sliderMax,
-                      divisions: widget.isOz ? (sliderMax - sliderMin).toInt() : 9,
-                      activeColor: Theme.of(context).colorScheme.primary,
-                      inactiveColor: Theme.of(context).colorScheme.secondary,
-                      label: widget.isOz
-                          ? "${sliderValue.clamp(sliderMin, sliderMax).round()} oz"
-                          : "${sliderValue.clamp(sliderMin, sliderMax).toInt()} ml",
-                      onChanged: (value) {
-                        setState(() {
-                          sliderValue = value;
-                        });
-                      },
-                    ),
-                    const SizedBox(height: 8),
-                    ElevatedButton(
-                      onPressed: () {
-                        final mlValue = widget.isOz ? (sliderValue * 29.57).round() : sliderValue.toInt();
-                        addWater(mlValue);
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Theme.of(context).colorScheme.primary,
-                        minimumSize: const Size(120, 50),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Column(
+                    children: [
+                      Slider(
+                        value: sliderValue.clamp(sliderMin, sliderMax),
+                        min: sliderMin,
+                        max: sliderMax,
+                        divisions: widget.isOz ? (sliderMax - sliderMin).toInt() : 9,
+                        activeColor: Theme.of(context).colorScheme.primary,
+                        inactiveColor: Theme.of(context).colorScheme.secondary,
+                        label: widget.isOz
+                            ? "${sliderValue.clamp(sliderMin, sliderMax).round()} oz"
+                            : "${sliderValue.clamp(sliderMin, sliderMax).toInt()} ml",
+                        onChanged: (value) {
+                          setState(() {
+                            sliderValue = value;
+                          });
+                        },
                       ),
-                      child: Text(
-                        widget.isOz
-                            ? "+ ${sliderValue.round()} oz"
-                            : "+ ${sliderValue.toInt()} ml",
-                        style: const TextStyle(color: Colors.white, fontSize: 16),
-                      ),
-                    ),
-                    const SizedBox(height: 50),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                      children: [
-                        for (var val in [150, 250, 400])
-                          ElevatedButton(
-                            onPressed: () {
-                              final mlValue = widget.isOz ? (val / 29.57).round() : val;
-                              addWater(mlValue);
-                            },
-                            style: ElevatedButton.styleFrom(
-                              shape: const CircleBorder(),
-                              padding: const EdgeInsets.all(13),
-                              backgroundColor: Colors.blue.shade300,
-                            ),
-                            child: Text(
-                              widget.isOz ? "+ ${(val / 29.57).round()}" : "+$val",
-                              style: const TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.white),
-                            ),
+                      const SizedBox(height: 8),
+                      Semantics(
+                        label: 'Add ${widget.isOz ? sliderValue.round() : sliderValue.toInt()} ${widget.isOz ? "ounces" : "milliliters"} of water',
+                        child: ElevatedButton(
+                          onPressed: () {
+                            final mlValue = widget.isOz 
+                                ? (sliderValue * ML_TO_OZ).round() 
+                                : sliderValue.toInt();
+                            addWater(mlValue);
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Theme.of(context).colorScheme.primary,
+                            foregroundColor: Theme.of(context).colorScheme.onPrimary,
+                            minimumSize: const Size(120, 50),
                           ),
-                      ],
-                    ),
-                  ],
+                          child: Text(
+                            widget.isOz
+                                ? "+ ${sliderValue.round()} oz"
+                                : "+ ${sliderValue.toInt()} ml",
+                            style: const TextStyle(fontSize: 16),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 50),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        children: [
+                          for (var val in quickAddValues)
+                            Semantics(
+                              label: 'Quick add $val ${widget.isOz ? "ounces" : "milliliters"}',
+                              child: ElevatedButton(
+                                onPressed: () {
+                                  final mlValue = widget.isOz 
+                                      ? (val * ML_TO_OZ).round() 
+                                      : val;
+                                  addWater(mlValue);
+                                },
+                                style: ElevatedButton.styleFrom(
+                                  shape: const CircleBorder(),
+                                  padding: const EdgeInsets.all(13),
+                                  backgroundColor: Theme.of(context).colorScheme.secondary,
+                                  foregroundColor: Colors.white,
+                                ),
+                                child: Text(
+                                  "+$val",
+                                  style: const TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.bold),
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ],
+                  ),
                 )
               ],
             ),
@@ -332,25 +407,73 @@ class _DailyPageState extends State<DailyPage> with SingleTickerProviderStateMix
     final newGoal = await showDialog<int>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text("Enter new goal:"),
+        title: Text(widget.isOz ? "Enter new goal (oz):" : "Enter new goal (ml):"),
         content: TextField(
           controller: controller,
           keyboardType: TextInputType.number,
-          decoration: const InputDecoration(hintText: "How many ml?"),
+          decoration: InputDecoration(
+            hintText: widget.isOz ? "How many oz?" : "How many ml?",
+          ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancel")),
+          TextButton(
+            onPressed: () => Navigator.pop(context), 
+            child: const Text("Cancel")
+          ),
           TextButton(
             onPressed: () {
               final value = int.tryParse(controller.text);
-              if (value != null && value > 0) Navigator.pop(context, value);
+              if (value != null && value > 0) {
+                // Girilen değeri her zaman ml'ye çevir
+                final mlValue = widget.isOz ? (value * ML_TO_OZ).round() : value;
+                Navigator.pop(context, mlValue);
+              }
             },
             child: const Text("Save"),
           ),
         ],
       ),
     );
-    if (newGoal != null) setDailyGoal(newGoal);
+    if (newGoal != null) {
+      setDailyGoal(newGoal);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(widget.isOz 
+              ? 'Goal set to ${(newGoal / ML_TO_OZ).round()} oz'
+              : 'Goal set to $newGoal ml'),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
+  }
+
+  void _showResetConfirmation() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Reset Today's Progress?"),
+        content: const Text("This will reset your water intake for today to 0. Are you sure?"),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Cancel"),
+          ),
+          TextButton(
+            onPressed: () {
+              resetWater();
+              Navigator.pop(context);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Daily progress reset!'),
+                  duration: Duration(seconds: 2),
+                ),
+              );
+            },
+            child: const Text("Reset", style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
   }
 }
 
