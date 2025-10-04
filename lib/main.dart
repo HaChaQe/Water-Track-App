@@ -172,11 +172,9 @@ class _MyAppState extends State<MyApp> {
         colorScheme: const ColorScheme.light(
           primary: Color(0xFF1976D2),
           secondary: Color(0xFF64B5F6),
-          background: Color(0xFFF5F5F5),
           surface: Colors.white,
           onPrimary: Colors.white,
           onSecondary: Colors.white,
-          onBackground: Color(0xFF212121),
           onSurface: Color(0xFF212121),
           brightness: Brightness.light,
         ),
@@ -198,11 +196,9 @@ class _MyAppState extends State<MyApp> {
         colorScheme: const ColorScheme.dark(
           primary: Color(0xFF64B5F6),
           secondary: Color(0xFF90CAF9),
-          background: Color(0xFF121212),
           surface: Color(0xFF1E1E1E),
           onPrimary: Colors.white,
           onSecondary: Colors.white,
-          onBackground: Colors.white,
           onSurface: Colors.white,
           brightness: Brightness.dark,
         ),

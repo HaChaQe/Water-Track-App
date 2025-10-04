@@ -227,7 +227,7 @@ class _DailyPageState extends State<DailyPage> with SingleTickerProviderStateMix
           ],
         ),
       ),
-      backgroundColor: Theme.of(context).colorScheme.background,
+      backgroundColor: Theme.of(context).colorScheme.surface,
       body: Center(
         child: Stack(
           alignment: Alignment.center,

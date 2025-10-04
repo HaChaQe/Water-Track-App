@@ -15,17 +15,12 @@ class WeeklyPage extends StatelessWidget {
     required this.isOz,
   });
 
-List<int> alignWeeklyData(List<int> weeklyData, DateTime today) {
-  // today.weekday → 1 = Pzt, 7 = Pazar
-  final todayIndex = today.weekday - 1;
-
-  if (weeklyData.length != 7) return weeklyData; // eksik veri varsa dokunma
-  
-  List<int> aligned = List.generate(7, (i) => weeklyData[(i + 7 - todayIndex) % 7]);
-
-  return aligned;
-}
-
+  // 🔁 Haftayı bugüne göre hizala (örneğin bugün Cumartesi ise Sat sonda olur)
+  List<int> alignWeeklyData(List<int> weeklyData, DateTime today) {
+    final todayIndex = today.weekday ; // 1 = Pzt, 7 = Paz
+    if (weeklyData.length != 7) return weeklyData;
+    return List.generate(7, (i) => weeklyData[(i + 7 - todayIndex) % 7]);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -34,18 +29,19 @@ List<int> alignWeeklyData(List<int> weeklyData, DateTime today) {
 
     final convertedDailyGoal = isOz ? dailyGoal / ML_TO_OZ : dailyGoal.toDouble();
 
-
-    final barValues = weeklyData.map((v) => isOz ? v / ML_TO_OZ : v.toDouble()).toList();
+    // 🔄 Haftayı hizala
+    final alignedData = alignWeeklyData(weeklyData, DateTime.now());
+    final barValues = alignedData.map((v) => isOz ? v / ML_TO_OZ : v.toDouble()).toList();
 
     final maxValue = barValues.reduce((a, b) => a > b ? a : b);
-    final maxY = (maxValue > convertedDailyGoal ? maxValue * 1.1 : convertedDailyGoal * 1.1);
+    final maxY = (maxValue > convertedDailyGoal ? maxValue * 1.1 : convertedDailyGoal * 1.1).ceilToDouble();
 
     final totalIntake = barValues.reduce((a, b) => a + b);
     final avgIntake = (totalIntake / 7).round();
     final daysCompleted = barValues.where((v) => v >= convertedDailyGoal).length;
     final completionRate = ((daysCompleted / 7) * 100).round();
 
-    final todayIndex = DateTime.now().weekday - 1; 
+    final todayIndex = DateTime.now().weekday - 1;
 
     return Scaffold(
       appBar: AppBar(title: const Text("Weekly Stats")),
@@ -106,18 +102,15 @@ List<int> alignWeeklyData(List<int> weeklyData, DateTime today) {
                               tooltipPadding: const EdgeInsets.all(8),
                               tooltipMargin: 8,
                               getTooltipItem: (group, groupIndex, rod, rodIndex) {
-                                final days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
                                 return BarTooltipItem(
-                                  '${days[group.x.toInt()]}\n',
+                                  '${daysShort[group.x.toInt()]}\n',
                                   const TextStyle(
                                     color: Colors.white,
                                     fontWeight: FontWeight.bold,
                                   ),
                                   children: [
                                     TextSpan(
-                                      text: isOz
-                                          ? '${rod.toY.round()} oz'
-                                          : '${rod.toY.round()} ml',
+                                      text: "${rod.toY.round()} ${isOz ? 'oz' : 'ml'}",
                                       style: const TextStyle(
                                         color: Colors.white70,
                                         fontSize: 14,
@@ -215,7 +208,7 @@ List<int> alignWeeklyData(List<int> weeklyData, DateTime today) {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      isOz ? "Daily Goal: ${convertedDailyGoal.round()} oz" : "Daily Goal: $dailyGoal ml",
+                      "Daily Goal: ${isOz ? convertedDailyGoal.round() : dailyGoal} ${isOz ? 'oz' : 'ml'}",
                       style: TextStyle(
                         color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
                         fontSize: 14,
@@ -225,84 +218,6 @@ List<int> alignWeeklyData(List<int> weeklyData, DateTime today) {
                 ),
               ),
             ),
-            const SizedBox(height: 20),
-            // Card(
-            //   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-            //   elevation: 3,
-            //   color: Theme.of(context).colorScheme.surface,
-            //   child: Padding(
-            //     padding: const EdgeInsets.all(16.0),
-            //     child: Column(
-            //       crossAxisAlignment: CrossAxisAlignment.start,
-            //       children: [
-            //         Text("Daily Breakdown", style: Theme.of(context).textTheme.titleMedium),
-            //         const SizedBox(height: 12),
-            //         ...List.generate(7, (index) {
-            //           final value = barValues[index];
-            //           final percentage = ((value / convertedDailyGoal) * 100).clamp(0, 100).round();
-            //           final isToday = index == todayIndex;
-            //           return Padding(
-            //             padding: const EdgeInsets.only(bottom: 12.0),
-            //             child: Column(
-            //               crossAxisAlignment: CrossAxisAlignment.start,
-            //               children: [
-            //                 Row(
-            //                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            //                   children: [
-            //                     Text(
-            //                       daysFull[index],
-            //                       style: TextStyle(
-            //                         fontWeight: isToday ? FontWeight.bold : FontWeight.normal,
-            //                         color: isToday
-            //                             ? Theme.of(context).colorScheme.primary
-            //                             : Theme.of(context).colorScheme.onSurface,
-            //                       ),
-            //                     ),
-            //                     Row(
-            //                       children: [
-            //                         Text(
-            //                           isOz ? "${value.round()} oz" : "${value.round()} ml",
-            //                           style: TextStyle(
-            //                             fontWeight: FontWeight.bold,
-            //                             color: value >= convertedDailyGoal
-            //                                 ? Theme.of(context).colorScheme.primary
-            //                                 : Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
-            //                           ),
-            //                         ),
-            //                         const SizedBox(width: 8),
-            //                         Text(
-            //                           "$percentage%",
-            //                           style: TextStyle(
-            //                             fontSize: 12,
-            //                             color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
-            //                           ),
-            //                         ),
-            //                       ],
-            //                     ),
-            //                   ],
-            //                 ),
-            //                 const SizedBox(height: 4),
-            //                 ClipRRect(
-            //                   borderRadius: BorderRadius.circular(4),
-            //                   child: LinearProgressIndicator(
-            //                     value: (value / convertedDailyGoal).clamp(0.0, 1.0),
-            //                     minHeight: 8,
-            //                     backgroundColor: Theme.of(context).colorScheme.onSurface.withOpacity(0.1),
-            //                     valueColor: AlwaysStoppedAnimation<Color>(
-            //                       value >= convertedDailyGoal
-            //                           ? Theme.of(context).colorScheme.primary
-            //                           : Theme.of(context).colorScheme.secondary,
-            //                     ),
-            //                   ),
-            //                 ),
-            //               ],
-            //             ),
-            //           );
-            //         }),
-            //       ],
-            //     ),
-            //   ),
-            // ),
           ],
         ),
       ),
@@ -311,9 +226,13 @@ List<int> alignWeeklyData(List<int> weeklyData, DateTime today) {
 
   Widget _legendBox(Color color, String text) => Row(
         children: [
-          Container(width: 16, height: 16, decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(4))),
+          Container(
+            width: 16,
+            height: 16,
+            decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(4)),
+          ),
           const SizedBox(width: 8),
-          Text(text, style: TextStyle(color: Colors.grey, fontSize: 12)),
+          Text(text, style: const TextStyle(color: Colors.grey, fontSize: 12)),
         ],
       );
 }
