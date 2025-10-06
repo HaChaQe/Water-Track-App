@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:confetti/confetti.dart';
 import 'dart:math';
@@ -27,7 +28,7 @@ class _DailyPageState extends State<DailyPage> with SingleTickerProviderStateMix
   static const double ML_TO_OZ = 29.5735;
   
   int totalMl = 0;
-  double sliderValue = 150;
+  double sliderValue = 200;
   late ConfettiController _confettiController;
   late AnimationController _waveController;
   bool _hasShownConfetti = false;
@@ -40,6 +41,7 @@ class _DailyPageState extends State<DailyPage> with SingleTickerProviderStateMix
     _waveController = AnimationController(vsync: this, duration: const Duration(seconds: 2))
       ..repeat();
     _loadMl();
+    sliderValue = widget.isOz ? (sliderValue / ML_TO_OZ).clamp(2, 16) : sliderValue.clamp(50, 500);
   }
 
   @override
@@ -59,24 +61,31 @@ class _DailyPageState extends State<DailyPage> with SingleTickerProviderStateMix
     }
   }
 
-  @override
-  void didUpdateWidget(covariant DailyPage oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (widget.isOz != oldWidget.isOz) {
-      setState(() {
-        if (widget.isOz) {
-          sliderValue = (sliderValue / ML_TO_OZ).clamp(2, 16);
-        } else {
-          sliderValue = (sliderValue * ML_TO_OZ).clamp(50, 500);
-        }
-      });
-    }
-    
-    // Goal değiştiğinde konfeti durumunu kontrol et
-    if (widget.dailyGoal != oldWidget.dailyGoal) {
-      _hasShownConfetti = totalMl < widget.dailyGoal;
-    }
+@override
+void didUpdateWidget(covariant DailyPage oldWidget) {
+  super.didUpdateWidget(oldWidget);
+
+  if (widget.isOz != oldWidget.isOz) {
+    setState(() {
+      // 🔹 Slider dönüştür
+      sliderValue = widget.isOz
+          ? (sliderValue / ML_TO_OZ).clamp(2, 16)
+          : (sliderValue * ML_TO_OZ).clamp(50, 500);
+
+      // 🔹 Toplamı dönüştür
+      totalMl = widget.isOz
+          ? totalMl
+          : totalMl; // totalMl her zaman ML cinsinden tutulduğu için burada dokunmuyoruz
+    });
   }
+
+  // 🔹 DailyGoal doğru birimle gösterilsin
+  if (widget.dailyGoal != oldWidget.dailyGoal) {
+    _hasShownConfetti = totalMl < widget.dailyGoal;
+  }
+}
+
+
 
   Future<void> _loadMl() async {
     try {
@@ -164,13 +173,18 @@ class _DailyPageState extends State<DailyPage> with SingleTickerProviderStateMix
         ? [4, 8, 16]  // oz için (yarım bardak, 1 bardak, 2 bardak)
         : [150, 250, 400]; // ml için
 
+    double displayedValue = widget.isOz
+        ? (sliderValue / ML_TO_OZ).clamp(sliderMin, sliderMax)
+        : sliderValue.clamp(sliderMin, sliderMax);
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Daily Water Track"),
         leading: Builder(
           builder: (context) => IconButton(
             onPressed: () => Scaffold.of(context).openDrawer(),
             icon: const Icon(Icons.settings),
+            iconSize: 33,
+            alignment: Alignment(2,1),
           ),
         ),
       ),
@@ -228,177 +242,203 @@ class _DailyPageState extends State<DailyPage> with SingleTickerProviderStateMix
         ),
       ),
       backgroundColor: Theme.of(context).colorScheme.surface,
-      body: Center(
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            Column(
-              mainAxisSize: MainAxisSize.min,
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          return SingleChildScrollView(
+            physics: const BouncingScrollPhysics(),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            minHeight: constraints.maxHeight,
+          ),
+          child: Center(
+            child: Stack(
+              alignment: Alignment.center,
               children: [
-                SizedBox(
-                  width: 220,
-                  height: 220,
-                  child: Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      Container(
-                        width: 220,
-                        height: 220,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: Theme.of(context).colorScheme.surface,
-                          boxShadow: [
-                            BoxShadow(
-                              color: Theme.of(context).colorScheme.primary.withOpacity(0.6),
-                              blurRadius: 30,
-                              spreadRadius: 5,
-                            )
-                          ],
-                        ),
+                Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    SizedBox(
+                      width: 220,
+                      height: 220,
+                      child: Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          Container(
+                            width: 220,
+                            height: 220,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: Theme.of(context).colorScheme.surface,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Theme.of(context).colorScheme.primary.withOpacity(0.6),
+                                  blurRadius: 30,
+                                  spreadRadius: 5,
+                                )
+                              ],
+                            ),
+                          ),
+                          AnimatedBuilder(
+                            animation: _waveController,
+                            builder: (context, child) {
+                              return ClipPath(
+                                clipper: WaveClipper(animationValue: _waveController.value, progress: progress),
+                                child: Container(
+                                  width: 220,
+                                  height: 220,
+                                  decoration: BoxDecoration(
+                                    color: Theme.of(context).colorScheme.primary,
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                          Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            mainAxisSize: MainAxisSize.min, // 🔥 Overflow engeller
+                            children: [
+                              Flexible( // 🔥 Text sığmazsa küçülür
+                                child: FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  child: Text(
+                                    widget.isOz
+                                        ? "${(totalMl / ML_TO_OZ).round()} oz"
+                                        : "$totalMl ml",
+                                    style: TextStyle(
+                                      fontSize: 24,
+                                      fontWeight: FontWeight.bold,
+                                      color: progress >= 0.55
+                                          ? Colors.white
+                                          : Theme.of(context).colorScheme.onSurface,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Flexible(
+                                child: FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  child: Text(
+                                    widget.isOz
+                                        ? "Goal: ${(widget.dailyGoal / ML_TO_OZ).round()} oz"
+                                        : "Goal: ${widget.dailyGoal} ml",
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      color: progress >= 0.5
+                                          ? Colors.white
+                                          : Theme.of(context).colorScheme.onSurface,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          )
+                        ],
                       ),
-                      AnimatedBuilder(
-                        animation: _waveController,
-                        builder: (context, child) {
-                          return ClipPath(
-                            clipper: WaveClipper(animationValue: _waveController.value, progress: progress),
-                            child: Container(
-                              width: 220,
-                              height: 220,
-                              decoration: BoxDecoration(
-                                color: Theme.of(context).colorScheme.primary,
-                                shape: BoxShape.circle,
+                    ),
+                    const SizedBox(height: 35),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: Column(
+                        children: [
+                          Slider(
+                            value: displayedValue, // 🔹 Burada değişti
+                            min: sliderMin,
+                            max: sliderMax,
+                            divisions: widget.isOz ? (sliderMax - sliderMin).toInt() : 9,
+                            activeColor: Theme.of(context).colorScheme.primary,
+                            inactiveColor: Theme.of(context).colorScheme.secondary,
+                            label: widget.isOz
+                                ? "${displayedValue.round()} oz"
+                                : "${displayedValue.toInt()} ml",
+                            onChanged: (value) {
+                              setState(() {
+                                // 🔹 Kullanıcı oz seçmişse tekrar mL’ye çevir
+                                sliderValue = widget.isOz ? (value * ML_TO_OZ) : value;
+                              });
+                            },
+                          ),
+                          const SizedBox(height: 8),
+                          Semantics(
+                            label: 'Add ${widget.isOz ? sliderValue.round() : sliderValue.toInt()} ${widget.isOz ? "ounces" : "milliliters"} of water',
+                            child: ElevatedButton(
+                              onPressed: () {
+                                final mlValue = widget.isOz 
+                                    ? (sliderValue * ML_TO_OZ).round() 
+                                    : sliderValue.toInt();
+                                addWater(mlValue);
+                              },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Theme.of(context).colorScheme.primary,
+                                foregroundColor: Theme.of(context).colorScheme.onPrimary,
+                                minimumSize: const Size(120, 50),
+                              ),
+                              child: Text(
+                                widget.isOz
+                                    ? "+ ${sliderValue.round()} oz"
+                                    : "+ ${sliderValue.toInt()} ml",
+                                style: const TextStyle(fontSize: 16),
                               ),
                             ),
-                          );
-                        },
-                      ),
-                      Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(
-                            widget.isOz
-                                ? "${(totalMl / ML_TO_OZ).round()} oz"
-                                : "$totalMl ml",
-                            style: TextStyle(
-                                fontSize: 24,
-                                fontWeight: FontWeight.bold,
-                                color: progress >= 0.55 
-                                    ? Colors.white 
-                                    : Theme.of(context).colorScheme.onSurface),
                           ),
-                          const SizedBox(height: 4),
-                          Text(
-                            widget.isOz
-                                ? "Goal: ${(widget.dailyGoal / ML_TO_OZ).round()} oz"
-                                : "Goal: ${widget.dailyGoal} ml",
-                            style: TextStyle(
-                                fontSize: 16,
-                                color: progress >= 0.5 
-                                    ? Colors.white 
-                                    : Theme.of(context).colorScheme.onSurface),
+                          const SizedBox(height: 50),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                            children: [
+                              for (var val in quickAddValues)
+                                Semantics(
+                                  label: 'Quick add $val ${widget.isOz ? "ounces" : "milliliters"}',
+                                  child: ElevatedButton(
+                                    onPressed: () {
+                                      final mlValue = widget.isOz 
+                                          ? (val * ML_TO_OZ).round() 
+                                          : val;
+                                      addWater(mlValue);
+                                    },
+                                    style: ElevatedButton.styleFrom(
+                                      shape: const CircleBorder(),
+                                      padding: const EdgeInsets.all(13),
+                                      backgroundColor: Theme.of(context).colorScheme.secondary,
+                                      foregroundColor: Colors.white,
+                                    ),
+                                    child: Text(
+                                      "+$val",
+                                      style: const TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.bold),
+                                    ),
+                                  ),
+                                ),
+                            ],
                           ),
                         ],
                       ),
-                    ],
-                  ),
+                    )
+                  ],
                 ),
-                const SizedBox(height: 35),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: Column(
-                    children: [
-                      Slider(
-                        value: sliderValue.clamp(sliderMin, sliderMax),
-                        min: sliderMin,
-                        max: sliderMax,
-                        divisions: widget.isOz ? (sliderMax - sliderMin).toInt() : 9,
-                        activeColor: Theme.of(context).colorScheme.primary,
-                        inactiveColor: Theme.of(context).colorScheme.secondary,
-                        label: widget.isOz
-                            ? "${sliderValue.clamp(sliderMin, sliderMax).round()} oz"
-                            : "${sliderValue.clamp(sliderMin, sliderMax).toInt()} ml",
-                        onChanged: (value) {
-                          setState(() {
-                            sliderValue = value;
-                          });
-                        },
-                      ),
-                      const SizedBox(height: 8),
-                      Semantics(
-                        label: 'Add ${widget.isOz ? sliderValue.round() : sliderValue.toInt()} ${widget.isOz ? "ounces" : "milliliters"} of water',
-                        child: ElevatedButton(
-                          onPressed: () {
-                            final mlValue = widget.isOz 
-                                ? (sliderValue * ML_TO_OZ).round() 
-                                : sliderValue.toInt();
-                            addWater(mlValue);
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Theme.of(context).colorScheme.primary,
-                            foregroundColor: Theme.of(context).colorScheme.onPrimary,
-                            minimumSize: const Size(120, 50),
-                          ),
-                          child: Text(
-                            widget.isOz
-                                ? "+ ${sliderValue.round()} oz"
-                                : "+ ${sliderValue.toInt()} ml",
-                            style: const TextStyle(fontSize: 16),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 50),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                        children: [
-                          for (var val in quickAddValues)
-                            Semantics(
-                              label: 'Quick add $val ${widget.isOz ? "ounces" : "milliliters"}',
-                              child: ElevatedButton(
-                                onPressed: () {
-                                  final mlValue = widget.isOz 
-                                      ? (val * ML_TO_OZ).round() 
-                                      : val;
-                                  addWater(mlValue);
-                                },
-                                style: ElevatedButton.styleFrom(
-                                  shape: const CircleBorder(),
-                                  padding: const EdgeInsets.all(13),
-                                  backgroundColor: Theme.of(context).colorScheme.secondary,
-                                  foregroundColor: Colors.white,
-                                ),
-                                child: Text(
-                                  "+$val",
-                                  style: const TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.bold),
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
-                    ],
-                  ),
-                )
+                ConfettiWidget(
+                  confettiController: _confettiController,
+                  blastDirectionality: BlastDirectionality.explosive,
+                  shouldLoop: false,
+                  emissionFrequency: 0.05,
+                  numberOfParticles: 40,
+                  maxBlastForce: 40,
+                  minBlastForce: 20,
+                  gravity: 0.3,
+                  colors: const [
+                    Color(0xFF1976D2),
+                    Color(0xFF64B5F6),
+                    Color(0xFFFFC107),
+                  ],
+                ),
               ],
             ),
-            ConfettiWidget(
-              confettiController: _confettiController,
-              blastDirectionality: BlastDirectionality.explosive,
-              shouldLoop: false,
-              emissionFrequency: 0.05,
-              numberOfParticles: 50,
-              maxBlastForce: 50,
-              minBlastForce: 20,
-              gravity: 0.3,
-              colors: const [
-                Color(0xFF1976D2),
-                Color(0xFF64B5F6),
-                Color(0xFFFFC107),
-              ],
-            ),
-          ],
+          ),
         ),
-      ),
+      );
+        }
+        )
     );
   }
 
@@ -447,34 +487,50 @@ class _DailyPageState extends State<DailyPage> with SingleTickerProviderStateMix
     }
   }
 
-  void _showResetConfirmation() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text("Reset Today's Progress?"),
-        content: const Text("This will reset your water intake for today to 0. Are you sure?"),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text("Cancel"),
-          ),
-          TextButton(
-            onPressed: () {
-              resetWater();
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Daily progress reset!'),
-                  duration: Duration(seconds: 2),
-                ),
-              );
-            },
-            child: const Text("Reset", style: TextStyle(color: Colors.red)),
-          ),
-        ],
+ void _showResetConfirmation() {
+  showDialog(
+    context: context,
+    builder: (context) => AlertDialog(
+      insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24), // 👈 Küçük ekranlarda taşmayı önler
+      title: const Text("Reset Today's Progress?"),
+      content: SingleChildScrollView( // 👈 İçerik taşarsa kaydırılabilir olur
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: const [
+            Text(
+              "This will reset your water intake for today to 0. Are you sure?",
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
       ),
-    );
-  }
+      actionsAlignment: MainAxisAlignment.end, // 👈 Butonlar hizalı dursun
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text("Cancel"),
+        ),
+        TextButton(
+          onPressed: () {
+            resetWater();
+            Navigator.pop(context);
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Daily progress reset!'),
+                duration: Duration(seconds: 2),
+              ),
+            );
+          },
+          child: const Text(
+            "Reset",
+            style: TextStyle(color: Colors.red),
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
 }
 
 class WaveClipper extends CustomClipper<Path> {

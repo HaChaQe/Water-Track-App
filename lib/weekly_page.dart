@@ -15,7 +15,6 @@ class WeeklyPage extends StatelessWidget {
     required this.isOz,
   });
 
-  // 🔁 Haftayı bugüne göre hizala (örneğin bugün Cumartesi ise Sat sonda olur)
   List<int> alignWeeklyData(List<int> weeklyData, DateTime today) {
     final todayIndex = today.weekday ; // 1 = Pzt, 7 = Paz
     if (weeklyData.length != 7) return weeklyData;
@@ -25,7 +24,7 @@ class WeeklyPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const daysShort = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-    const daysFull = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+    // const daysFull = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
     final convertedDailyGoal = isOz ? dailyGoal / ML_TO_OZ : dailyGoal.toDouble();
 
@@ -44,11 +43,12 @@ class WeeklyPage extends StatelessWidget {
     final todayIndex = DateTime.now().weekday - 1;
 
     return Scaffold(
-      appBar: AppBar(title: const Text("Weekly Stats")),
+      appBar: AppBar(toolbarHeight: 0,),
       backgroundColor: Theme.of(context).colorScheme.background,
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Row(
               children: [
@@ -71,7 +71,7 @@ class WeeklyPage extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 7),
             _StatCard(
               title: "Success Rate",
               value: "$completionRate%",
@@ -79,7 +79,7 @@ class WeeklyPage extends StatelessWidget {
               color: completionRate >= 70 ? Colors.green : Colors.orange,
               isWide: true,
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 10),
             Card(
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
               elevation: 3,
@@ -89,7 +89,7 @@ class WeeklyPage extends StatelessWidget {
                 child: Column(
                   children: [
                     Text("Water Intake (Last 7 Days)", style: Theme.of(context).textTheme.titleLarge),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 10),
                     SizedBox(
                       height: 300,
                       child: BarChart(
@@ -259,7 +259,7 @@ class _StatCard extends StatelessWidget {
       elevation: 2,
       color: Theme.of(context).colorScheme.surface,
       child: Padding(
-        padding: const EdgeInsets.all(16.0),
+        padding: EdgeInsets.symmetric(vertical: isWide ? 16 : 12, horizontal: 12),
         child: isWide
             ? Row(
                 mainAxisAlignment: MainAxisAlignment.center,

@@ -180,8 +180,8 @@ class _MyAppState extends State<MyApp> {
         ),
         scaffoldBackgroundColor: const Color(0xFFF5F5F5),
         appBarTheme: const AppBarTheme(
-          backgroundColor: Color(0xFF1976D2),
-          foregroundColor: Colors.white,
+          // backgroundColor: Color(0xFF1976D2),
+          foregroundColor: Colors.blue,
           centerTitle: true,
           elevation: 0,
         ),
